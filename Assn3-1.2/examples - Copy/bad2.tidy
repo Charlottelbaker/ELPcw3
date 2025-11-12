@@ -1,0 +1,5 @@
+let w = theWorld in
+let fun printEither(x: str + str) = 
+  case x of { left y  -> print(y,w) |
+              right z  -> print(z,w) }
+in (printEither(right("World")), printEither(left("Hello")))

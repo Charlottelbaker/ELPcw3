@@ -1,0 +1,3 @@
+let x = print("Hello", theWorld) in
+let y = print("World", x) in
+y

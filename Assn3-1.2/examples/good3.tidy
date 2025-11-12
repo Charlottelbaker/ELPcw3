@@ -1,0 +1,5 @@
+let w = theWorld in
+let rec printPluses(wn: world * int): world =
+  let (w,n) = wn in
+  if (n == 0) then w else print("+",printPluses(w,n-1))
+in printPluses(w,10)

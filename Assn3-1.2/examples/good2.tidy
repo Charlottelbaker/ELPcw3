@@ -1,0 +1,4 @@
+let fun printEither(x: str + str) = \w: world.
+  case x of { left(y) -> print(y,w) |
+              right(z) -> print(z,w) }
+in (printEither(left("Hello")))(theWorld)

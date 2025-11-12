@@ -1,0 +1,6 @@
+let w = theWorld in
+let fun sneakyPrint(x : str) = print(x,w) in
+let fun printEitherThree(x : str + str) =
+  case x of { left y -> sneakyPrint(y) |
+              right z -> sneakyPrint(z) }
+in (printEitherThree(left("Hello")),printEitherThree(right("World")))
