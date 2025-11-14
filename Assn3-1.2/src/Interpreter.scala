@@ -21,7 +21,54 @@ object Interpreter {
     case v: Value =>
       sys.error("desugar: there shouldn't be any values here")
     // BEGIN ANSWER
-    case _ => sys.error("todo")
+    case Unit => Unit
+    case Num(n) => Num(n)
+    case Bool(b)        => Bool(b)
+    case Str(s)         => Str(s)
+    case Var(x)         => Var(x)
+    case Loc(l)         => Loc(l)
+
+    case Plus(e1,e2)    => Plus(desugar(e1), desugar(e2))
+    case Minus(e1,e2)   => Minus(desugar(e1), desugar(e2))
+    case Times(e1,e2)   => Times(desugar(e1), desugar(e2))
+
+    case Eq(e1,e2)         => Eq(desugar(e1), desugar(e2))
+    case Less(e1,e2)       => Less(desugar(e1), desugar(e2))
+    case IfThenElse(c,t,f) => IfThenElse(desugar(c), desugar(t), desugar(f))
+
+    case Length(e)      => Length(desugar(e))
+    case Index(e1,e2)   => Index(desugar(e1), desugar(e2))
+    case Concat(e1,e2)  => Concat(desugar(e1), desugar(e2))
+    case Print(e1,e2)   => Print(desugar(e1), desugar(e2))
+
+    case Let(x, e1, e2) => Let(x, desugar(e1), desugar(e2))
+
+    case LetFun(f, x, ty, e1, e2) => Let(f, Lambda(x, ty, desugar(e1)), desugar(e2))
+
+    case LetRec(f, x, ty1, ty2, e1, e2) => Let(f, Rec(f,x,ty1,ty2,desugar(e1)), desugar(e2))
+
+    case Fst(e) =>
+      val x = generator.genVar("x")
+      val y = generator.genVar("y")
+      PmPair(x, y, desugar(e), Var(x))
+        
+    case Snd(e) =>
+      val x = generator.genVar("x")
+      val y = generator.genVar("y")
+      PmPair(x, y, desugar(e), Var(y))
+
+    case Left(e)        => Left(desugar(e))
+    case Right(e)       => Right(desugar(e))
+    case Case(e, x, e1, y, e2) => Case(desugar(e), x, desugar(e1), y, desugar(e2))
+
+    case Lambda(x, ty, e) => Lambda(x, ty, desugar(e))
+
+    case Rec(f, x, ty1, ty2, body) => Rec(f, x, ty1, ty2, desugar(body))
+
+    case Apply(e1, e2) => Apply(desugar(e1), desugar(e2))
+     
+  }
+
     // END ANSWER
   }
 
@@ -84,7 +131,126 @@ object Interpreter {
       case v: Value => (v, s)
       case Unit => (UnitV, s)
       // BEGIN ANSWER
-      case _ => sys.error("todo")
+      case Num(n) => (NumV(n), s)
+      case Bool(b) => (BoolV(b), s)
+      case Str(s) => (StringV(s), s)
+      case Lambda(x, ty, e) => (LambdaV(x, e), s)
+      case Rec(f, x, ty1, ty2, e) => (RecV(f, x, e), s)
+
+      case Plus(e1, e2) =>
+        val (v1, s1) = eval(e1, s)
+        val (v2, s2) = eval(e2, s1)
+        (SimpleOp.add(v1, v2), s2)
+
+      case Minus(e1, e2) =>
+        val (v1, s1) = eval(e1, s)
+        val (v2, s2) = eval(e2, s1)
+        (SimpleOp.subtract(v1, v2), s2)
+
+      case Times(e1, e2) =>
+        val (v1, s1) = eval(e1, s)
+        val (v2, s2) = eval(e2, s1)
+        (SimpleOp.multiply(v1, v2), s2)
+
+      case Less(e1, e2) =>
+        val (v1, s1) = eval(e1, s)
+        val (v2, s2) = eval(e2, s1)
+        (SimpleOp.less(v1, v2), s2)
+
+      case Eq(e1, e2) =>
+        val (v1, s1) = eval(e1, s)
+        val (v2, s2) = eval(e2, s1)
+        (BoolV(v1 == v2), s2)
+      
+      case Length(e1) =>
+        val (v1, s1) = eval(e1, s)
+        (SimpleOp.length(v1), s1)
+
+      case Index(e1, e2) =>
+        val (v1, s1) = eval(e1, s)
+        val (v2, s2) = eval(e2, s1)
+        (SimpleOp.index(v1, v2), s2)
+
+      case Concat(e1, e2) =>
+        val (v1, s1) = eval(e1, s)
+        val (v2, s2) = eval(e2, s1)
+        (SimpleOp.concat(v1, v2), s2)
+
+      case Print(e1, e2) =>
+        val (v1, s1) = eval(e1, s)
+        val (v2, s2) = eval(e2, s1)
+        (SimpleOp.print(v1, v2), s2)
+
+      case IfThenElse(c, t, f) =>
+        val (vc, s1) = eval(c, s)
+        vc match {
+          case BoolV(true) => eval(t, s1)
+          case BoolV(false) => eval(f, s1)
+          case _ => sys.error("condition not a boolean")
+        }
+      
+      case Loc(l) =>
+        s.get(l) match {
+          case Some(e) => 
+            val (v1, s1) = eval(e, s)
+            (v, s1 + (l -> v))
+          case None => sys.error("not found in store")
+        }
+
+      case Let(x, e1, e2) =>
+        val l = generator.genVar("loc")
+        val s1 = s + (l -> e1)
+        val e2Subst = subst(e2, Var(l), x)
+        eval(e2Subst, s1)
+      
+      case Apply(e1, e2) =>
+          val (vf, s1) = eval(e1, s)
+          vf match {
+              case LambdaV(x, body) =>
+                val l = generator.genVar("l")
+                val s2 = s1 + (l -> e2)
+                val bodySub = subst(body, Loc(l), x)  
+                eval(bodySub, s2)
+
+              case RecV(f, x, e) =>
+                val lx = generator.genVar("lx")      
+                val lf = generator.genVar("lf")      
+                val s2 = s1 + (lx -> e2) + (lf -> vf) 
+                val bodySub = subst(subst(body, Loc(lx), x), Loc(lf), f) 
+                eval(bodySub, s2)
+
+              case _ => sys.error("Trying to apply a non-function")}
+
+      case PmPair(x, y, e1, e2) =>
+        val (vp, s1) = eval(e1, s)
+        vp match {
+          case PairV(ex, ey) =>
+            val lx = generator.genVar("lx")
+            val ly = generator.genVar("ly")
+            val s2 = s1 + (lx -> ex) + (ly -> ey)
+            val e2Sub = subst(subst(e2, Loc(lx), x), Loc(ly), y)
+            eval(e2Sub, s2)
+          case _ => sys.errors"Trying to pattern match a non-pair value")
+
+      case Case(e, x, e1, y, e2) =>
+        val (vsum, s1) = eval(e, s) 
+        vsum match {
+          case LeftV(vl) =>
+            val lx = generator.genVar("lx")
+            val s2 = s1 + (lx -> vl)              
+            val e1Sub = subst(e1, Loc(lx), x)    
+            eval(e1Sub, s2)                       
+
+          case RightV(vr) =>
+            val ly = generator.genVar("ly")      
+            val s2 = s1 + (ly -> vr)            
+            val e2Sub = subst(e2, Loc(ly), y)    
+            eval(e2Sub, s2)
+
+          case _ =>
+            sys.error("Trying to pattern match a non-sum value")
+        }
+      
       // END ANSWER
     }
 

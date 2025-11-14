@@ -192,6 +192,98 @@ object Syntax {
         case v: Value => v
   
         // BEGIN ANSWER
+        case Num(e) => Num(e)
+        case Plus(e1,e2) => Plus(subst(e1,ex,x),subst(e2,ex,x))
+        case Minus(e1,e2) => Minus(subst(e1,ex,x),subst(e2,ex,x))
+        case Times(e1,e2) => Times(subst(e1,ex,x),subst(e2,ex,x))
+
+        // Booleans
+        case Bool(b) => Bool(b)
+        case Eq(e1,e2) => Eq(subst(e1,ex,x),subst(e2,ex,x))
+        case IfThenElse(t0,e1,e2) =>
+          IfThenElse(subst(t0,ex,x),subst(e1,ex,x),subst(e2,ex,x))
+
+        // Strings
+        case Str(s) => Str(s)
+        case Length(t0) => Length(subst(t0,ex,x))
+        case Index(e1,e2) => Index(subst(e1,ex,x),subst(e2,ex,x))
+        case Concat(e1,e2) => Concat(subst(e1,ex,x),subst(e2,ex,x))
+
+        case Var(y) =>
+          if (x == y) {
+            ex
+          } else {
+            Var(y)
+          }
+          
+        case Let(y,e1,e2) => {
+          val z = generator.genVar(y);
+          Let(z,subst(e1,ex,x),subst(swap(e2,y,z),ex,x))
+        }
+
+        // Pairs
+        case Pair(e1,e2) => Pair(subst(e1,ex,x),subst(e2,ex,x))
+        case Fst(t0) => Fst(subst(t0,ex,x))
+        case Snd(t0) => Snd(subst(t0,ex,x))
+
+        // Functions
+        case Lambda(y,ty,t0) => {
+          val z = generator.genVar(y);
+          Lambda(z,ty,subst(swap(t0,y,z),ex,x))
+        }
+        case Apply(e1,e2) => Apply(subst(e1,ex,x),subst(e2,ex,x))
+        case Rec(f,y,ty1,ty2,t0) => {
+          val g = generator.genVar(f);
+          val z = generator.genVar(y);
+          Rec(g,z,ty1,ty2,subst(swap(swap(t0,f,g),y,z),ex,x))
+        }
+
+        // Syntactic sugar
+      case PmPair(y1,y2,e1,e2) => {
+          val y1z = generator.genVar(y1);
+          val y2z = generator.genVar(y2);
+          PmPair(y1z,y2z,subst(e1,ex,x),
+            subst(swap(swap(e2,y1z,y1), y2z, y2), ex,x))
+        }
+
+        case LetFun(f,y,ty,e1,e2) => {
+          val fz = generator.genVar(f);
+          val yz = generator.genVar(y);
+          LetFun(fz,yz,ty,subst(swap(e1,yz,y),ex,x),
+            subst(swap(e2,fz,f), ex,x))
+        }
+
+        case LetRec(f,y,ty1,ty2,e1,e2) => {
+          val fz = generator.genVar(f);
+          val yz = generator.genVar(y);
+          LetRec(fz,yz,ty1,ty2,subst(swap(swap(e1,fz,f),yz,y),ex,x),
+            subst(swap(e2,fz,f), ex,x))
+        }
+//         case Loc(l) => Loc(l) case v: Value => v
+        case Loc(l) => Loc(l)
+
+        case WorldV(s) => WorldV(s)
+
+        case Print(e1, e2) =>
+          Print(subst(e1, ex, x), subst(e2, ex, x))
+
+        case Left(e0) =>
+          Left(subst(e0, ex, x))
+
+        case Right(e0) =>
+          Right(subst(e0, ex, x))
+
+        case Case(e0, y1, e1, y2, e2) =>
+          val z1 = generator.genVar(y1)
+          val z2 = generator.genVar(y2)
+          Case(
+            subst(e0, ex, x),
+            z1, subst(swap(e1, y1, z1), ex, x),
+            z2, subst(swap(e2, y2, z2), ex, x)
+          )
+
+
+      
         case _ => sys.error("todo")
 
           // END ANSWER
